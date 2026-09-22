@@ -1,0 +1,27 @@
+{
+  "name": "campushub",
+  "version": "1.0.0",
+  "description": "CampusHub multi-tenant campus resource management API",
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "npm run build && node dist/app.js",
+    "start": "node dist/app.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "mongoose": "^9.10.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.2",
+    "eslint": "^10.11.0",
+    "prettier": "^3.9.8",
+    "ts-node": "^10.9.2",
+    "typescript": "^7.0.2"
+  }
+}

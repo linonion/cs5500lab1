@@ -1,0 +1,202 @@
+openapi: 3.0.3
+info:
+  title: CampusHub Reservation API
+  version: 1.0.0
+  description: API for listing campus resources and managing reservations.
+  license:
+    name: ISC
+    url: https://opensource.org/license/isc-license/
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development server
+security: []
+paths:
+  /resources:
+    get:
+      summary: List campus resources
+      operationId: listResources
+      parameters:
+        - name: type
+          in: query
+          required: false
+          description: Filter resources by category.
+          schema:
+            $ref: "#/components/schemas/ResourceType"
+      responses:
+        "200":
+          description: Resources matching the optional type filter.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Resource"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /reservations:
+    post:
+      summary: Create a reservation
+      operationId: createReservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReservationRequest"
+      responses:
+        "201":
+          description: Reservation created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /reservations/user/{userId}:
+    get:
+      summary: List active reservations for a user
+      operationId: listActiveReservationsForUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        "200":
+          description: Active reservations belonging to the user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reservation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+components:
+  schemas:
+    ResourceType:
+      type: string
+      enum:
+        - ROOM
+        - EQUIPMENT
+        - LAB
+    ReservationStatus:
+      type: string
+      enum:
+        - PENDING
+        - CONFIRMED
+        - CANCELLED
+    Resource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - type
+        - location
+        - isAvailable
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          $ref: "#/components/schemas/ResourceType"
+        location:
+          type: string
+        isAvailable:
+          type: boolean
+    CreateReservationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - resourceId
+        - userId
+        - startTime
+        - endTime
+      properties:
+        resourceId:
+          type: string
+          minLength: 1
+        userId:
+          type: string
+          minLength: 1
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+    Reservation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - resourceId
+        - userId
+        - startTime
+        - endTime
+        - status
+      properties:
+        id:
+          type: string
+        resourceId:
+          type: string
+        userId:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/ReservationStatus"
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+  responses:
+    BadRequest:
+      description: The request is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: The requested resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: The resource is unavailable or already reserved for this time.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalServerError:
+      description: An unexpected server error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

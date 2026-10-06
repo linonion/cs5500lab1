@@ -10,7 +10,7 @@
 ## Authorized Stack
 
 - Write all application code in TypeScript. Do not create or edit raw `.js` files.
-- Use Node.js, Express, Mongoose, and their official type packages.
+- Use Node.js, Express, PostgreSQL, `pg`, and their official type packages.
 - For development tools, use TypeScript, ts-node, @types/node, @types/express, ESLint, and Prettier.
 - Do not add another library unless you explain why it is needed and get approval first.
 - Never commit secrets, credentials, local `.env` files, `node_modules`, or build output.
@@ -22,7 +22,7 @@ Keep the project split into clear layers:
 - `src/routes`: Define URLs, HTTP methods, and middleware only. Do not put business logic or database calls here.
 - `src/controllers`: Read requests, call services, and send responses with the right status codes. Do not query the database directly.
 - `src/services`: Keep business logic and model coordination here. Do not pass Express request or response objects into services.
-- `src/models`: Keep Mongoose schemas, model definitions, and persisted-data interfaces here.
+- `src/models`: Keep PostgreSQL schema definitions and persisted-data interfaces here.
 
 Use `src/app.ts` to set up the Express app and start the server. As features grow, keep each feature's routes, controllers, services, and models in focused files.
 

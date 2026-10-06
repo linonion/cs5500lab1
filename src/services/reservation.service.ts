@@ -1,37 +1,11 @@
 import { randomUUID } from "node:crypto";
 
+import { getDatabasePool } from "../config/database";
+import type { ReservationRecord } from "../models/Reservation.model";
 import type {
   CreateReservationRequest,
   Reservation,
-  Resource,
-  ResourceType,
 } from "../types/reservation";
-
-const resources: Resource[] = [
-  {
-    id: "res-room-302",
-    name: "Study Room 302",
-    type: "ROOM",
-    location: "North Hall, Floor 3",
-    isAvailable: true,
-  },
-  {
-    id: "res-printer-a",
-    name: "3D Printer A",
-    type: "EQUIPMENT",
-    location: "Innovation Center, Maker Space",
-    isAvailable: true,
-  },
-  {
-    id: "res-biology-lab-1",
-    name: "Biology Teaching Lab 1",
-    type: "LAB",
-    location: "Science Building, Floor 2",
-    isAvailable: true,
-  },
-];
-
-const reservations: Reservation[] = [];
 
 export type CreateReservationResult =
   | { kind: "created"; reservation: Reservation }
@@ -39,58 +13,106 @@ export type CreateReservationResult =
   | { kind: "resource-unavailable" }
   | { kind: "conflict" };
 
-export function listResources(type?: ResourceType): Resource[] {
-  return resources
-    .filter((resource) => type === undefined || resource.type === type)
-    .map((resource) => ({ ...resource }));
+function toReservationResponse(record: ReservationRecord): Reservation {
+  return {
+    id: record.id,
+    resourceId: record.resourceId,
+    userId: record.userId,
+    startTime: record.startTime.toISOString(),
+    endTime: record.endTime.toISOString(),
+    status: record.status,
+  };
 }
 
-export function createReservation(
+export async function createReservation(
   input: CreateReservationRequest,
-): CreateReservationResult {
-  const resource = resources.find(({ id }) => id === input.resourceId);
-  if (!resource) {
-    return { kind: "resource-not-found" };
-  }
-  if (!resource.isAvailable) {
-    return { kind: "resource-unavailable" };
-  }
+): Promise<CreateReservationResult> {
+  const database = getDatabasePool();
+  const client = await database.connect();
+  let transactionStarted = false;
+  const requestedStart = new Date(input.startTime);
+  const requestedEnd = new Date(input.endTime);
 
-  const requestedStart = Date.parse(input.startTime);
-  const requestedEnd = Date.parse(input.endTime);
-  const hasConflict = reservations.some((reservation) => {
-    if (
-      reservation.resourceId !== input.resourceId ||
-      reservation.status === "CANCELLED"
-    ) {
-      return false;
+  try {
+    await client.query("BEGIN");
+    transactionStarted = true;
+
+    const resourceResult = await client.query<{ isAvailable: boolean }>(
+      `SELECT is_available AS "isAvailable"
+       FROM resources WHERE id = $1 FOR UPDATE`,
+      [input.resourceId],
+    );
+    const resource = resourceResult.rows[0];
+
+    if (!resource) {
+      await client.query("ROLLBACK");
+      transactionStarted = false;
+      return { kind: "resource-not-found" };
+    }
+    if (!resource.isAvailable) {
+      await client.query("ROLLBACK");
+      transactionStarted = false;
+      return { kind: "resource-unavailable" };
     }
 
-    return (
-      Date.parse(reservation.startTime) < requestedEnd &&
-      Date.parse(reservation.endTime) > requestedStart
+    const conflictResult = await client.query<{ id: string }>(
+      `SELECT id FROM reservations
+       WHERE resource_id = $1
+         AND status <> 'CANCELLED'
+         AND start_time < $3
+         AND end_time > $2
+       LIMIT 1`,
+      [input.resourceId, requestedStart, requestedEnd],
     );
-  });
 
-  if (hasConflict) {
-    return { kind: "conflict" };
+    if (conflictResult.rowCount) {
+      await client.query("ROLLBACK");
+      transactionStarted = false;
+      return { kind: "conflict" };
+    }
+
+    const insertResult = await client.query<ReservationRecord>(
+      `INSERT INTO reservations
+         (id, resource_id, user_id, start_time, end_time, status)
+       VALUES ($1, $2, $3, $4, $5, 'PENDING')
+       RETURNING id, resource_id AS "resourceId", user_id AS "userId",
+                 start_time AS "startTime", end_time AS "endTime", status`,
+      [
+        randomUUID(),
+        input.resourceId,
+        input.userId,
+        requestedStart,
+        requestedEnd,
+      ],
+    );
+
+    await client.query("COMMIT");
+    transactionStarted = false;
+    return {
+      kind: "created",
+      reservation: toReservationResponse(insertResult.rows[0]),
+    };
+  } catch (error) {
+    if (transactionStarted) {
+      await client.query("ROLLBACK");
+    }
+    throw error;
+  } finally {
+    client.release();
   }
-
-  const reservation: Reservation = {
-    ...input,
-    id: randomUUID(),
-    status: "PENDING",
-  };
-  reservations.push(reservation);
-
-  return { kind: "created", reservation: { ...reservation } };
 }
 
-export function listActiveReservationsForUser(userId: string): Reservation[] {
-  return reservations
-    .filter(
-      (reservation) =>
-        reservation.userId === userId && reservation.status !== "CANCELLED",
-    )
-    .map((reservation) => ({ ...reservation }));
+export async function listActiveReservationsForUser(
+  userId: string,
+): Promise<Reservation[]> {
+  const { rows } = await getDatabasePool().query<ReservationRecord>(
+    `SELECT id, resource_id AS "resourceId", user_id AS "userId",
+            start_time AS "startTime", end_time AS "endTime", status
+     FROM reservations
+     WHERE user_id = $1 AND status <> 'CANCELLED'
+     ORDER BY start_time`,
+    [userId],
+  );
+
+  return rows.map(toReservationResponse);
 }

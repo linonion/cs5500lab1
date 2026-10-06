@@ -1,11 +1,9 @@
-import type { RequestHandler } from "express";
+import type { RequestHandler, Response } from "express";
 
 import {
-  createReservation as createReservationInMemory,
+  createReservation as createReservationInDatabase,
   listActiveReservationsForUser,
-  listResources,
 } from "../services/reservation.service";
-import { RESOURCE_TYPES } from "../types/reservation";
 import type {
   CreateReservationRequest,
   ErrorResponse,
@@ -88,7 +86,7 @@ const isIsoDateTime = (value: unknown): value is string => {
 };
 
 const sendError = (
-  response: Parameters<RequestHandler>[1],
+  response: Response,
   status: number,
   code: string,
   message: string,
@@ -97,42 +95,10 @@ const sendError = (
   response.status(status).json(error);
 };
 
-const isResourceType = (value: string): boolean =>
-  RESOURCE_TYPES.some((resourceType) => resourceType === value);
-
-export const getResources: RequestHandler = (request, response): void => {
-  const type = request.query.type;
-  if (type === undefined) {
-    response.status(200).json(listResources());
-    return;
-  }
-
-  if (typeof type !== "string" || type.trim().length === 0) {
-    sendError(
-      response,
-      400,
-      "VALIDATION_ERROR",
-      "type must be a non-empty string.",
-    );
-    return;
-  }
-
-  if (!isResourceType(type)) {
-    sendError(
-      response,
-      400,
-      "VALIDATION_ERROR",
-      "type must be ROOM, EQUIPMENT, or LAB.",
-    );
-    return;
-  }
-
-  response
-    .status(200)
-    .json(listResources(type as (typeof RESOURCE_TYPES)[number]));
-};
-
-export const postReservation: RequestHandler = (request, response): void => {
+export const postReservation: RequestHandler = async (
+  request,
+  response,
+): Promise<void> => {
   const body: unknown = request.body;
   if (!isRecord(body)) {
     sendError(
@@ -178,7 +144,7 @@ export const postReservation: RequestHandler = (request, response): void => {
   };
 
   try {
-    const result = createReservationInMemory(input);
+    const result = await createReservationInDatabase(input);
     if (result.kind === "resource-not-found") {
       sendError(
         response,
@@ -218,10 +184,10 @@ export const postReservation: RequestHandler = (request, response): void => {
   }
 };
 
-export const getUserReservations: RequestHandler = (
+export const getUserReservations: RequestHandler = async (
   request,
   response,
-): void => {
+): Promise<void> => {
   const { userId } = request.params;
   if (!isNonEmptyString(userId)) {
     sendError(
@@ -234,7 +200,8 @@ export const getUserReservations: RequestHandler = (
   }
 
   try {
-    response.status(200).json(listActiveReservationsForUser(userId));
+    const reservations = await listActiveReservationsForUser(userId);
+    response.status(200).json(reservations);
   } catch {
     sendError(
       response,

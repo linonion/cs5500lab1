@@ -13,6 +13,14 @@ export type CreateReservationResult =
   | { kind: "resource-unavailable" }
   | { kind: "conflict" };
 
+export type CancelReservationResult =
+  { kind: "cancelled"; reservation: Reservation } | { kind: "not-found" };
+
+export type ConfirmReservationResult =
+  | { kind: "confirmed"; reservation: Reservation }
+  | { kind: "not-found" }
+  | { kind: "invalid-status" };
+
 function toReservationResponse(record: ReservationRecord): Reservation {
   return {
     id: record.id,
@@ -58,7 +66,7 @@ export async function createReservation(
     const conflictResult = await client.query<{ id: string }>(
       `SELECT id FROM reservations
        WHERE resource_id = $1
-         AND status <> 'CANCELLED'
+         AND status IN ('PENDING', 'CONFIRMED')
          AND start_time < $3
          AND end_time > $2
        LIMIT 1`,
@@ -102,17 +110,66 @@ export async function createReservation(
   }
 }
 
-export async function listActiveReservationsForUser(
+export async function listReservationsForUser(
   userId: string,
 ): Promise<Reservation[]> {
   const { rows } = await getDatabasePool().query<ReservationRecord>(
     `SELECT id, resource_id AS "resourceId", user_id AS "userId",
             start_time AS "startTime", end_time AS "endTime", status
      FROM reservations
-     WHERE user_id = $1 AND status <> 'CANCELLED'
+     WHERE user_id = $1
      ORDER BY start_time`,
     [userId],
   );
 
   return rows.map(toReservationResponse);
+}
+
+export async function cancelReservation(
+  reservationId: string,
+): Promise<CancelReservationResult> {
+  const { rows } = await getDatabasePool().query<ReservationRecord>(
+    `UPDATE reservations
+     SET status = 'CANCELLED'
+     WHERE id = $1
+     RETURNING id, resource_id AS "resourceId", user_id AS "userId",
+               start_time AS "startTime", end_time AS "endTime", status`,
+    [reservationId],
+  );
+  const reservation = rows[0];
+
+  return reservation
+    ? { kind: "cancelled", reservation: toReservationResponse(reservation) }
+    : { kind: "not-found" };
+}
+
+export async function confirmReservation(
+  reservationId: string,
+): Promise<ConfirmReservationResult> {
+  const database = getDatabasePool();
+  const updateResult = await database.query<ReservationRecord>(
+    `UPDATE reservations
+     SET status = 'CONFIRMED'
+     WHERE id = $1 AND status IN ('PENDING', 'CONFIRMED')
+     RETURNING id, resource_id AS "resourceId", user_id AS "userId",
+               start_time AS "startTime", end_time AS "endTime", status`,
+    [reservationId],
+  );
+  const reservation = updateResult.rows[0];
+
+  if (reservation) {
+    return {
+      kind: "confirmed",
+      reservation: toReservationResponse(reservation),
+    };
+  }
+
+  const existingResult = await database.query<{ status: string }>(
+    "SELECT status FROM reservations WHERE id = $1",
+    [reservationId],
+  );
+
+  return existingResult.rows[0]
+    ? { kind: "invalid-status" }
+    : { kind: "not-found" };
 }

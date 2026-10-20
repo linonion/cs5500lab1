@@ -8,7 +8,8 @@
     "dev": "npm run build && node --env-file-if-exists=.env dist/app.js",
     "start": "node --env-file-if-exists=.env dist/app.js",
     "seed": "npm run build && node --env-file-if-exists=.env dist/scripts/seed-resources.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:lab4": "npm run build && node --env-file-if-exists=.env dist/scripts/verify-lab4.js"
   },
   "keywords": [],
   "author": "",

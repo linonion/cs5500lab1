@@ -22,6 +22,7 @@ export const getResources: RequestHandler = async (
   response,
 ): Promise<void> => {
   const type = request.query.type;
+  const isAvailable = request.query.isAvailable;
   if (
     type !== undefined &&
     (typeof type !== "string" || type.trim().length === 0)
@@ -45,8 +46,26 @@ export const getResources: RequestHandler = async (
     return;
   }
 
+  if (
+    isAvailable !== undefined &&
+    isAvailable !== "true" &&
+    isAvailable !== "false"
+  ) {
+    sendError(
+      response,
+      400,
+      "VALIDATION_ERROR",
+      "isAvailable must be true or false.",
+    );
+    return;
+  }
+
   try {
-    const resources = await listResources(type);
+    const resources = await listResources({
+      type,
+      isAvailable:
+        isAvailable === undefined ? undefined : isAvailable === "true",
+    });
     response.status(200).json(resources);
   } catch {
     sendError(

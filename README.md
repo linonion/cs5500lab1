@@ -50,7 +50,11 @@ its tables and indexes at startup. The OpenAPI contract is in
 ```sh
 npm run typecheck
 npm run build
+npm run verify:lab4
 ```
+
+`verify:lab4` starts the app on an ephemeral port, verifies the Lab 4 resource
+and reservation flows against PostgreSQL, and removes its isolated test data.
 
 Useful endpoint checks:
 
@@ -58,8 +62,11 @@ Useful endpoint checks:
 curl http://localhost:3000/api/v1/health
 curl http://localhost:3000/api/v1/resources
 curl 'http://localhost:3000/api/v1/resources?type=ROOM'
+curl 'http://localhost:3000/api/v1/resources?type=ROOM&isAvailable=true'
 curl -X POST http://localhost:3000/api/v1/reservations \
   -H 'Content-Type: application/json' \
   -d '{"resourceId":"res-room-302","userId":"student-1","startTime":"2026-10-06T17:00:00Z","endTime":"2026-10-06T18:00:00Z"}'
 curl http://localhost:3000/api/v1/reservations/user/student-1
+curl -X PATCH http://localhost:3000/api/v1/reservations/RESERVATION_ID/confirm
+curl -X PATCH http://localhost:3000/api/v1/reservations/RESERVATION_ID/cancel
 ```

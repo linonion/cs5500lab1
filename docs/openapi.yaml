@@ -22,9 +22,15 @@ paths:
           description: Filter resources by category.
           schema:
             $ref: "#/components/schemas/ResourceType"
+        - name: isAvailable
+          in: query
+          required: false
+          description: Filter resources by current availability.
+          schema:
+            type: boolean
       responses:
         "200":
-          description: Resources matching the optional type filter.
+          description: Resources matching the optional filters.
           content:
             application/json:
               schema:
@@ -62,8 +68,8 @@ paths:
           $ref: "#/components/responses/InternalServerError"
   /reservations/user/{userId}:
     get:
-      summary: List active reservations for a user
-      operationId: listActiveReservationsForUser
+      summary: List reservations for a user
+      operationId: listReservationsForUser
       parameters:
         - name: userId
           in: path
@@ -73,7 +79,7 @@ paths:
             minLength: 1
       responses:
         "200":
-          description: Active reservations belonging to the user.
+          description: All reservations belonging to the user.
           content:
             application/json:
               schema:
@@ -84,7 +90,56 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalServerError"
+  /reservations/{id}/cancel:
+    patch:
+      summary: Cancel a reservation
+      operationId: cancelReservation
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+      responses:
+        "200":
+          description: Reservation cancelled. Repeated cancellation is idempotent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+  /reservations/{id}/confirm:
+    patch:
+      summary: Confirm a pending reservation
+      operationId: confirmReservation
+      parameters:
+        - $ref: "#/components/parameters/ReservationId"
+      responses:
+        "200":
+          description: Reservation confirmed. Repeated confirmation is idempotent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 components:
+  parameters:
+    ReservationId:
+      name: id
+      in: path
+      required: true
+      description: Reservation identifier.
+      schema:
+        type: string
+        minLength: 1
   schemas:
     ResourceType:
       type: string
@@ -189,7 +244,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     Conflict:
-      description: The resource is unavailable or already reserved for this time.
+      description: The request conflicts with resource availability, an existing reservation, or the current reservation status.
       content:
         application/json:
           schema:

@@ -1,8 +1,10 @@
 import type { RequestHandler, Response } from "express";
 
 import {
+  cancelReservation as cancelReservationInDatabase,
+  confirmReservation as confirmReservationInDatabase,
   createReservation as createReservationInDatabase,
-  listActiveReservationsForUser,
+  listReservationsForUser,
 } from "../services/reservation.service";
 import type {
   CreateReservationRequest,
@@ -200,8 +202,93 @@ export const getUserReservations: RequestHandler = async (
   }
 
   try {
-    const reservations = await listActiveReservationsForUser(userId);
+    const reservations = await listReservationsForUser(userId);
     response.status(200).json(reservations);
+  } catch {
+    sendError(
+      response,
+      500,
+      "INTERNAL_SERVER_ERROR",
+      "An unexpected server error occurred.",
+    );
+  }
+};
+
+export const cancelReservation: RequestHandler = async (
+  request,
+  response,
+): Promise<void> => {
+  const { id } = request.params;
+  if (!isNonEmptyString(id)) {
+    sendError(
+      response,
+      400,
+      "VALIDATION_ERROR",
+      "id must be a non-empty string.",
+    );
+    return;
+  }
+
+  try {
+    const result = await cancelReservationInDatabase(id);
+    if (result.kind === "not-found") {
+      sendError(
+        response,
+        404,
+        "RESERVATION_NOT_FOUND",
+        "The reservation does not exist.",
+      );
+      return;
+    }
+
+    response.status(200).json(result.reservation);
+  } catch {
+    sendError(
+      response,
+      500,
+      "INTERNAL_SERVER_ERROR",
+      "An unexpected server error occurred.",
+    );
+  }
+};
+
+export const confirmReservation: RequestHandler = async (
+  request,
+  response,
+): Promise<void> => {
+  const { id } = request.params;
+  if (!isNonEmptyString(id)) {
+    sendError(
+      response,
+      400,
+      "VALIDATION_ERROR",
+      "id must be a non-empty string.",
+    );
+    return;
+  }
+
+  try {
+    const result = await confirmReservationInDatabase(id);
+    if (result.kind === "not-found") {
+      sendError(
+        response,
+        404,
+        "RESERVATION_NOT_FOUND",
+        "The reservation does not exist.",
+      );
+      return;
+    }
+    if (result.kind === "invalid-status") {
+      sendError(
+        response,
+        409,
+        "INVALID_STATUS_TRANSITION",
+        "A cancelled reservation cannot be confirmed.",
+      );
+      return;
+    }
+
+    response.status(200).json(result.reservation);
   } catch {
     sendError(
       response,

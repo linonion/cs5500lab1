@@ -26,6 +26,14 @@ Keep the project split into clear layers:
 
 Use `src/app.ts` to set up the Express app and start the server. As features grow, keep each feature's routes, controllers, services, and models in focused files.
 
+### Frontend (`client`)
+
+- Build UI features with functional React components and explicit prop interfaces.
+- Keep API calls in typed API modules or custom hooks, never inline in JSX.
+- Manage asynchronous loading, success, and error states explicitly with React hooks.
+- Keep styling modular and consistent with CSS Modules; reserve global CSS for shared tokens and resets.
+- Treat `docs/openapi.yaml` as the source of truth for frontend API types and request paths.
+
 ## TypeScript and Safety
 
 - Keep TypeScript's strict settings enabled.

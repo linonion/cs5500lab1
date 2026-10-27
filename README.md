@@ -1,7 +1,8 @@
 # CampusHub
 
 CampusHub is a TypeScript, Express, and PostgreSQL API for listing campus
-resources and managing reservations.
+resources and managing reservations. The React and TypeScript client lives in
+`client/`.
 
 ## Local setup
 
@@ -45,12 +46,29 @@ The API is available at `http://localhost:3000/api/v1`. The application creates
 its tables and indexes at startup. The OpenAPI contract is in
 [`docs/openapi.yaml`](docs/openapi.yaml).
 
+## Frontend setup
+
+The frontend requires Node.js 20 or newer. With the API running on port
+3000, start the Vite client in a second terminal:
+
+```sh
+cd client
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. During development, Vite proxies `/api/v1`
+requests to the backend. To use a different API origin, create an ignored
+`client/.env.local` file with `VITE_API_BASE_URL` set to the complete API base
+URL, such as `http://localhost:3000/api/v1`.
+
 ## Verification
 
 ```sh
 npm run typecheck
 npm run build
 npm run verify:lab4
+cd client && npm run typecheck && npm run build
 ```
 
 `verify:lab4` starts the app on an ephemeral port, verifies the Lab 4 resource

@@ -3,6 +3,7 @@ import express from "express";
 import { appConfig } from "./config/app.config";
 import { closeDatabase, connectToDatabase } from "./config/database";
 import { healthRouter } from "./routes/health.routes";
+import { errorHandler } from "./middleware/errorHandler";
 import { resourceRouter } from "./routes/resource.routes";
 import { reservationRouter } from "./routes/reservation.routes";
 
@@ -12,6 +13,7 @@ app.use(express.json());
 app.use("/api/v1", healthRouter);
 app.use("/api/v1", resourceRouter);
 app.use("/api/v1", reservationRouter);
+app.use(errorHandler);
 
 async function startServer(): Promise<void> {
   try {

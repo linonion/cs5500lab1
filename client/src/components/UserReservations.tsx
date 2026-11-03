@@ -1,10 +1,4 @@
-import { useEffect, useState } from "react";
-
-import {
-  cancelReservation,
-  fetchUserReservations,
-  type Reservation,
-} from "../api/campushubApi";
+import { useReservations } from "../hooks/useReservations";
 import styles from "./UserReservations.module.css";
 
 export interface UserReservationsProps {
@@ -21,66 +15,8 @@ export function UserReservations({
   userId,
   refreshKey,
 }: UserReservationsProps) {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function loadReservations(isCurrent: () => boolean): Promise<void> {
-    if (!userId.trim()) {
-      setReservations([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await fetchUserReservations(userId.trim());
-      if (isCurrent()) {
-        setReservations(result.filter(({ status }) => status !== "CANCELLED"));
-      }
-    } catch (loadError: unknown) {
-      if (isCurrent()) {
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Unable to load your reservations.",
-        );
-      }
-    } finally {
-      if (isCurrent()) {
-        setIsLoading(false);
-      }
-    }
-  }
-
-  useEffect(() => {
-    let current = true;
-    void loadReservations(() => current);
-    return () => {
-      current = false;
-    };
-  }, [userId, refreshKey]);
-
-  async function handleCancel(reservationId: string): Promise<void> {
-    setCancellingId(reservationId);
-    setError(null);
-    try {
-      await cancelReservation(reservationId);
-      setReservations((current) =>
-        current.filter(({ id }) => id !== reservationId),
-      );
-    } catch (cancelError: unknown) {
-      setError(
-        cancelError instanceof Error
-          ? cancelError.message
-          : "Unable to cancel the reservation.",
-      );
-    } finally {
-      setCancellingId(null);
-    }
-  }
+  const { reservations, isLoading, cancellingId, error, cancel } =
+    useReservations(userId, refreshKey);
 
   return (
     <section className={styles.panel} aria-labelledby="reservations-heading">
@@ -122,7 +58,7 @@ export function UserReservations({
               className={styles.cancelButton}
               type="button"
               disabled={cancellingId === reservation.id}
-              onClick={() => void handleCancel(reservation.id)}
+              onClick={() => void cancel(reservation.id)}
             >
               {cancellingId === reservation.id ? "Cancelling…" : "Cancel"}
             </button>

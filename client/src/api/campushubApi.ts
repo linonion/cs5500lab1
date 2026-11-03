@@ -1,43 +1,30 @@
-export const RESOURCE_TYPES = ["ROOM", "EQUIPMENT", "LAB"] as const;
-export type ResourceType = (typeof RESOURCE_TYPES)[number];
+import type {
+  CreateReservationRequest,
+  ErrorResponse,
+  Reservation,
+  Resource,
+  ResourceType,
+} from "../../../shared/contracts";
 
-export const RESERVATION_STATUSES = [
-  "PENDING",
-  "CONFIRMED",
-  "CANCELLED",
-] as const;
-export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
+export type {
+  CreateReservationRequest,
+  Reservation,
+  ReservationStatus,
+  Resource,
+  ResourceType,
+} from "../../../shared/contracts";
 
-export interface Resource {
-  id: string;
-  name: string;
-  type: ResourceType;
-  location: string;
-  isAvailable: boolean;
-}
-
-export interface CreateReservationDTO {
-  resourceId: string;
-  userId: string;
-  startTime: string;
-  endTime: string;
-}
-
-export interface Reservation extends CreateReservationDTO {
-  id: string;
-  status: ReservationStatus;
-}
-
-export interface ApiErrorBody {
-  code: string;
-  message: string;
-}
+export const RESOURCE_TYPES = [
+  "ROOM",
+  "EQUIPMENT",
+  "LAB",
+] as const satisfies readonly ResourceType[];
 
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
 
-  constructor(status: number, body: ApiErrorBody) {
+  constructor(status: number, body: ErrorResponse) {
     super(body.message);
     this.name = "ApiError";
     this.status = status;
@@ -45,10 +32,13 @@ export class ApiError extends Error {
   }
 }
 
+export const getErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback;
+
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "/api/v1";
 
-function isApiErrorBody(value: unknown): value is ApiErrorBody {
+function isApiErrorBody(value: unknown): value is ErrorResponse {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -62,7 +52,7 @@ function isApiErrorBody(value: unknown): value is ApiErrorBody {
 async function parseResponse<T>(response: Response): Promise<T> {
   const body: unknown = await response.json().catch(() => undefined);
   if (!response.ok) {
-    const errorBody: ApiErrorBody = isApiErrorBody(body)
+    const errorBody: ErrorResponse = isApiErrorBody(body)
       ? body
       : {
           code: "HTTP_ERROR",
@@ -81,7 +71,7 @@ export async function fetchResources(type?: ResourceType): Promise<Resource[]> {
 }
 
 export async function createReservation(
-  payload: CreateReservationDTO,
+  payload: CreateReservationRequest,
 ): Promise<Reservation> {
   const response = await fetch(`${apiBaseUrl}/reservations`, {
     method: "POST",

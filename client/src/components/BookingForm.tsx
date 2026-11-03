@@ -1,29 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
-import {
-  ApiError,
-  createReservation,
-  type Reservation,
-  type Resource,
-} from "../api/campushubApi";
+import type { Reservation, Resource } from "../api/campushubApi";
+import { useCreateReservation } from "../hooks/useCreateReservation";
 import styles from "./BookingForm.module.css";
 
 export interface BookingFormProps {
   resource: Resource | null;
   userId: string;
   onReservationCreated: (reservation: Reservation) => void;
-}
-
-function validateTimes(startTime: string, endTime: string): string | null {
-  if (!startTime || !endTime) {
-    return "Choose both a start and end time.";
-  }
-
-  if (new Date(startTime).getTime() >= new Date(endTime).getTime()) {
-    return "End time must be later than start time.";
-  }
-
-  return null;
 }
 
 export function BookingForm({
@@ -33,59 +17,19 @@ export function BookingForm({
 }: BookingFormProps) {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { isLoading, error, successMessage, submit } = useCreateReservation({
+    resource,
+    userId,
+    onCreated: onReservationCreated,
+  });
 
-  useEffect(() => {
-    setError(null);
-    setSuccessMessage(null);
-  }, [resource?.id]);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> {
     event.preventDefault();
-    setError(null);
-    setSuccessMessage(null);
-
-    if (!resource) {
-      setError("Select an available resource before booking.");
-      return;
-    }
-    if (!userId.trim()) {
-      setError("Enter a student ID before booking.");
-      return;
-    }
-
-    const validationError = validateTimes(startTime, endTime);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const reservation = await createReservation({
-        resourceId: resource.id,
-        userId: userId.trim(),
-        startTime: new Date(startTime).toISOString(),
-        endTime: new Date(endTime).toISOString(),
-      });
-      setSuccessMessage(`${resource.name} is reserved and pending confirmation.`);
+    if (await submit(startTime, endTime)) {
       setStartTime("");
       setEndTime("");
-      onReservationCreated(reservation);
-    } catch (bookingError: unknown) {
-      if (bookingError instanceof ApiError && bookingError.status === 409) {
-        setError("This resource is already reserved for the selected time window.");
-      } else {
-        setError(
-          bookingError instanceof Error
-            ? bookingError.message
-            : "Unable to create the reservation.",
-        );
-      }
-    } finally {
-      setIsLoading(false);
     }
   }
 

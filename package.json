@@ -7,6 +7,8 @@
     "build": "tsc",
     "dev": "npm run build && node --env-file-if-exists=.env dist/app.js",
     "start": "node --env-file-if-exists=.env dist/app.js",
+    "test": "jest --runInBand",
+    "test:coverage": "jest --runInBand --coverage",
     "seed": "npm run build && node --env-file-if-exists=.env dist/scripts/seed-resources.js",
     "typecheck": "tsc --noEmit",
     "verify:lab4": "npm run build && node --env-file-if-exists=.env dist/scripts/verify-lab4.js"
@@ -20,11 +22,16 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
+    "@types/jest": "^29.5.14",
     "@types/node": "^26.6.2",
     "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
     "eslint": "^10.11.0",
+    "jest": "^29.7.0",
     "prettier": "^3.9.8",
+    "supertest": "^7.3.2",
+    "ts-jest": "^29.4.15",
     "ts-node": "^10.9.2",
-    "typescript": "^7.0.2"
+    "typescript": "^6.0.3"
   }
 }

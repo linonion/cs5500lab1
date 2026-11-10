@@ -67,9 +67,18 @@ URL, such as `http://localhost:3000/api/v1`.
 ```sh
 npm run typecheck
 npm run build
+npm test
+npm run test:coverage
 npm run verify:lab4
 cd client && npm run typecheck && npm run build
 ```
+
+The Jest suites use an in-memory PostgreSQL query-contract implementation from
+`src/test/setup.ts`. This keeps service and Supertest integration tests isolated
+from the local database while preserving the application's PostgreSQL behavior
+and transaction boundaries. Coverage is collected across `src/services/` and
+`src/controllers/`, with an enforced 80% threshold for statements, branches,
+functions, and lines.
 
 `verify:lab4` starts the app on an ephemeral port, verifies the Lab 4 resource
 and reservation flows against PostgreSQL, and removes its isolated test data.

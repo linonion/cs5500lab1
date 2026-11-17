@@ -4,16 +4,16 @@
 
 The workflow in `.github/workflows/ci.yml` runs for pushes and pull requests targeting `main`. Its `test` job installs locked dependencies, lints, typechecks, builds, and runs Jest while saving the complete output in `test-results.log`.
 
-If and only if Jest fails, the `auto-fix` job downloads that log and sends it to an OpenAI model together with the current source diff and TypeScript production source. The generated patch is rejected unless every changed file is a non-test file under `src/`. The workflow then reruns lint, typecheck, build, and Jest before it creates `fix/auto-heal-<run-id>` and opens a pull request.
+If and only if Jest fails, the `auto-fix` job downloads that log and sends it to GitHub Copilot together with the current source diff and TypeScript production source. The generated patch is rejected unless every changed file is a non-test file under `src/`. The workflow then reruns lint, typecheck, build, and Jest before it creates `fix/auto-heal-<run-id>` and opens a pull request.
 
 ## One-time GitHub setup
 
-1. Create an OpenAI API key and add it at **Repository Settings → Secrets and variables → Actions → New repository secret** with the name `OPENAI_API_KEY`. Never commit the key.
-2. Optionally add an Actions variable named `OPENAI_MODEL`. If omitted, the workflow uses `gpt-5-mini`.
+1. Confirm that the repository owner has access to GitHub Copilot. The workflow uses the short-lived built-in `GITHUB_TOKEN`; no API key or long-lived personal access token is stored.
+2. Optionally add an Actions variable named `COPILOT_MODEL`. If omitted, the workflow uses `gpt-4.1`.
 3. Open **Repository Settings → Actions → General → Workflow permissions**. Select **Read and write permissions** and enable **Allow GitHub Actions to create and approve pull requests**.
 4. Push the Lab 8 workflow to `main` and confirm the baseline CI run is green.
 
-API use may incur charges on the OpenAI API account. A ChatGPT subscription does not automatically include API credits.
+The auto-fix job grants `copilot-requests: write` only to that job. Copilot usage is billed against the repository owner's Copilot entitlement for a personally owned repository.
 
 ## Break-and-fix validation
 
@@ -33,4 +33,4 @@ Keep exactly one generated auto-fix pull request open or merged for grading, as 
 - The fix changes production code, not tests or assertions.
 - The diff is limited to the reservation overlap defect.
 - The verification commands all pass in the auto-fix job.
-- No API key, token, `.env` file, build output, or dependency directory is committed.
+- No token, `.env` file, build output, or dependency directory is committed.

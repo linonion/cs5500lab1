@@ -63,6 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      copilot-requests: write
       pull-requests: write
 
     steps:
@@ -86,12 +87,28 @@ jobs:
         with:
           name: jest-failure-${{ github.run_id }}
 
-      - name: Generate and apply guarded AI patch
+      - name: Prepare guarded Copilot prompt
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5-mini' }}
-        run: npm run auto-heal -- test-results.log
+        run: npm run auto-heal -- prepare test-results.log auto-heal-prompt.txt
+
+      - name: Install GitHub Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Ask Copilot to generate a patch
+        id: inference
+        uses: actions/ai-inference@v3
+        with:
+          prompt-file: auto-heal-prompt.txt
+          model: ${{ vars.COPILOT_MODEL || 'gpt-4.1' }}
+          system-prompt: >-
+            You are a cautious TypeScript repair agent. Return only the requested
+            unified git diff and never modify tests or configuration.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Validate and apply Copilot patch
+        run: npm run auto-heal -- apply "${{ steps.inference.outputs.response-file }}"
 
       - name: Verify AI patch
         run: |

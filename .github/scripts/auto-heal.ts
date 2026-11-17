@@ -2,27 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-interface ResponseContent {
-  type?: string;
-  text?: string;
-}
-
-interface ResponseOutput {
-  content?: ResponseContent[];
-}
-
-interface OpenAIResponse {
-  error?: { message?: string };
-  output?: ResponseOutput[];
-}
-
 const MAX_CONTEXT_CHARACTERS = 120_000;
-const failureLogPath = process.argv[2] ?? "test-results.log";
-const apiKey = process.env.OPENAI_API_KEY;
-
-if (!apiKey) {
-  throw new Error("OPENAI_API_KEY is required to run the auto-healing agent");
-}
 
 function runGit(args: string[]): string {
   return execFileSync("git", args, { encoding: "utf8" }).trim();
@@ -75,22 +55,6 @@ function buildSourceContext(): string {
   return context;
 }
 
-function extractOutputText(response: OpenAIResponse): string {
-  const texts =
-    response.output?.flatMap(
-      (item) =>
-        item.content
-          ?.filter((content) => content.type === "output_text")
-          .map((content) => content.text ?? "") ?? [],
-    ) ?? [];
-  const output = texts.join("\n").trim();
-
-  if (!output) {
-    throw new Error(response.error?.message ?? "The AI response contained no patch");
-  }
-  return output;
-}
-
 function normalizePatch(output: string): string {
   const fencedPatch = output.match(/```(?:diff|patch)?\s*\n([\s\S]*?)```/i);
   const candidate = (fencedPatch?.[1] ?? output).trim();
@@ -128,7 +92,7 @@ function validatePatch(patch: string): void {
   }
 }
 
-async function main(): Promise<void> {
+function preparePrompt(failureLogPath: string, promptPath: string): void {
   const failureLog = readFileSync(failureLogPath, "utf8");
   const sourceContext = buildSourceContext();
   const changedDiff = process.env.BASE_REF
@@ -147,28 +111,18 @@ ${changedDiff}
 SOURCE FILE CONTEXT:
 ${sourceContext}`;
 
-  const apiResponse = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
-      input: prompt,
-    }),
-  });
-  const responseBody: unknown = await apiResponse.json();
+  writeFileSync(promptPath, prompt, "utf8");
+  console.log(`Wrote guarded Copilot prompt to ${promptPath}.`);
+}
 
-  if (!apiResponse.ok) {
-    const message =
-      typeof responseBody === "object" && responseBody !== null
-        ? JSON.stringify(responseBody)
-        : apiResponse.statusText;
-    throw new Error(`OpenAI API request failed (${apiResponse.status}): ${message}`);
+function applyResponse(responsePath: string): void {
+  const response = readFileSync(responsePath, "utf8").trim();
+
+  if (!response) {
+    throw new Error("The Copilot response contained no patch");
   }
 
-  const patch = normalizePatch(extractOutputText(responseBody as OpenAIResponse));
+  const patch = normalizePatch(response);
   validatePatch(patch);
   writeFileSync("auto-heal.patch", patch, "utf8");
   execFileSync("git", ["apply", "--check", "auto-heal.patch"], {
@@ -178,8 +132,35 @@ ${sourceContext}`;
   console.log("Applied the validated AI patch to production source files.");
 }
 
-void main().catch((error: unknown) => {
+function main(): void {
+  const command = process.argv[2];
+
+  if (command === "prepare") {
+    preparePrompt(
+      process.argv[3] ?? "test-results.log",
+      process.argv[4] ?? "auto-heal-prompt.txt",
+    );
+    return;
+  }
+
+  if (command === "apply") {
+    const responsePath = process.argv[3];
+    if (!responsePath) {
+      throw new Error("A Copilot response file path is required");
+    }
+    applyResponse(responsePath);
+    return;
+  }
+
+  throw new Error(
+    "Usage: auto-heal prepare [test-log] [prompt-output] | auto-heal apply <response-file>",
+  );
+}
+
+try {
+  main();
+} catch (error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
   process.exitCode = 1;
-});
+}

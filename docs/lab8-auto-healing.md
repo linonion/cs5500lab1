@@ -9,7 +9,7 @@ If and only if Jest fails, the `auto-fix` job downloads that log and sends it to
 ## One-time GitHub setup
 
 1. Confirm that the repository owner has access to GitHub Copilot. The workflow uses the short-lived built-in `GITHUB_TOKEN`; no API key or long-lived personal access token is stored.
-2. Optionally add an Actions variable named `COPILOT_MODEL`. If omitted, the workflow uses `gpt-4.1`.
+2. Optionally add an Actions variable named `COPILOT_MODEL`. If omitted, Copilot selects a model available to the repository owner's plan.
 3. Open **Repository Settings → Actions → General → Workflow permissions**. Select **Read and write permissions** and enable **Allow GitHub Actions to create and approve pull requests**.
 4. Push the Lab 8 workflow to `main` and confirm the baseline CI run is green.
 

@@ -100,7 +100,7 @@ jobs:
         uses: actions/ai-inference@v3
         with:
           prompt-file: auto-heal-prompt.txt
-          model: ${{ vars.COPILOT_MODEL || 'gpt-4.1' }}
+          model: ${{ vars.COPILOT_MODEL }}
           system-prompt: >-
             You are a cautious TypeScript repair agent. Return only the requested
             unified git diff and never modify tests or configuration.

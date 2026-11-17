@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint, build, and test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      test-outcome: ${{ steps.jest.outcome }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Run Jest and capture output
+        id: jest
+        shell: bash
+        run: set -o pipefail; npm test 2>&1 | tee test-results.log
+
+      - name: Upload Jest output
+        if: always() && steps.jest.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jest-failure-${{ github.run_id }}
+          path: test-results.log
+          retention-days: 7
+
+  auto-fix:
+    name: Auto-heal failed Jest tests
+    needs: test
+    if: >-
+      ${{ failure() &&
+          needs.test.outputs.test-outcome == 'failure' &&
+          (github.event_name != 'pull_request' ||
+           github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Check out failing revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download Jest failure output
+        uses: actions/download-artifact@v4
+        with:
+          name: jest-failure-${{ github.run_id }}
+
+      - name: Generate and apply guarded AI patch
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5-mini' }}
+        run: npm run auto-heal -- test-results.log
+
+      - name: Verify AI patch
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run build
+          npm test
+
+      - name: Commit patch and open pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PATCH_BRANCH: fix/auto-heal-${{ github.run_id }}
+          BASE_BRANCH: ${{ github.event.pull_request.head.ref || 'main' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$PATCH_BRANCH"
+          git add src
+          git commit -m "Fix failing tests with auto-healing agent"
+          git push origin "$PATCH_BRANCH"
+          gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$PATCH_BRANCH" \
+            --title "Auto-heal failing Jest tests (${{ github.run_id }})" \
+            --body-file .github/auto-heal-pr.md

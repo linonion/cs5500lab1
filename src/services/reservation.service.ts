@@ -67,7 +67,7 @@ export async function createReservation(
       `SELECT id FROM reservations
        WHERE resource_id = $1
          AND status IN ('PENDING', 'CONFIRMED')
-         AND start_time < $3
+         AND start_time > $3
          AND end_time > $2
        LIMIT 1`,
       [input.resourceId, requestedStart, requestedEnd],

@@ -11,6 +11,8 @@
     "start": "node --env-file-if-exists=.env dist/app.js",
     "test": "jest --runInBand",
     "test:coverage": "jest --runInBand --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "seed": "npm run build && node --env-file-if-exists=.env dist/scripts/seed-resources.js",
     "typecheck": "tsc --noEmit",
     "verify:lab4": "npm run build && node --env-file-if-exists=.env dist/scripts/verify-lab4.js"
@@ -23,6 +25,7 @@
     "pg": "^8.23.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.51.1",
     "@types/express": "^5.0.6",
     "@types/jest": "^29.5.14",
     "@types/node": "^26.6.2",

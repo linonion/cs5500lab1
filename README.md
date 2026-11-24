@@ -69,9 +69,16 @@ npm run typecheck
 npm run build
 npm test
 npm run test:coverage
+npm run test:e2e
 npm run verify:lab4
 cd client && npm run typecheck && npm run build
 ```
+
+The Playwright E2E suite seeds the standard resources and automatically starts
+both the Express API and Vite frontend. It exercises the booking and conflict
+journeys in Chromium, Firefox, and WebKit. Install the browser binaries once
+with `npx playwright install` before the first run; use `npm run test:e2e:ui`
+for Playwright's interactive UI mode.
 
 The Jest suites use an in-memory PostgreSQL query-contract implementation from
 `src/test/setup.ts`. This keeps service and Supertest integration tests isolated

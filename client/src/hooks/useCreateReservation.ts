@@ -72,14 +72,14 @@ export function useCreateReservation({
         endTime: new Date(endTime).toISOString(),
       });
       setSuccessMessage(
-        `${resource.name} is reserved and pending confirmation.`,
+        `Reservation Confirmed: ${resource.name} is reserved and pending confirmation.`,
       );
       onCreated(reservation);
       return true;
     } catch (bookingError: unknown) {
       setError(
         bookingError instanceof ApiError && bookingError.status === 409
-          ? "This resource is already reserved for the selected time window."
+          ? "Resource unavailable for selected time."
           : getErrorMessage(bookingError, "Unable to create the reservation."),
       );
       return false;
